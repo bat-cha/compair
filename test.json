@@ -1,0 +1,28 @@
+{
+ "name": "world",
+ "children": [
+  {
+   "name": "europ",
+   "children": [
+    {
+     "name": "fr",
+     "children": [
+      {"name": "PAR", "size": 3938},
+      {"name": "LYS", "size": 3812},
+      {"name": "NCE", "size": 6714},
+      {"name": "TLS", "size": 743}
+     ]
+    },
+    {
+     "name": "de",
+     "children": [
+      {"name": "MUC", "size": 3534},
+      {"name": "FRA", "size": 5731},
+      {"name": "DUS", "size": 7840},
+      {"name": "TXL", "size": 5914}
+     ]
+    }
+   ]
+  }
+ ]
+}
