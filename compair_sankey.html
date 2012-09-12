@@ -24,179 +24,616 @@
   stroke-opacity: .5;
 }
 
+.linkOver {
+  fill: none;
+  stroke: red;
+  stroke-opacity: .5;
+}
+
 </style>
 <body>
-
+<!--<div id="progressbar"/>-->
 <div id="chart"/>
+<!--<input id="storeData" type="button" value="Store Data!" onclick="storeDataNetwork()" />-->
 
-<script type="text/javascript" src="d3.v2.js"></script>
-<script src="sankey.js"></script>
+<link type="text/css" href="css/ui-lightness/jquery-ui-1.8.23.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="js/d3.v2.js"></script>
+<script type="text/javascript" src="js/sankey.js"></script>
+<script type="text/javascript" src="js/jquery-1.8.0.min.js"></script>
+<script type="text/javascript" src="js/mootools-core-1.4.5-full-nocompat.js"></script>
+<!--<script type="text/javascript" src="js/jquery-ui-1.8.23.custom.min.js"></script>-->
+
+<!--
+<style>
+  #progress_bar {
+    margin: 10px 0;
+    padding: 3px;
+    border: 1px solid #000;
+    font-size: 14px;
+    clear: both;
+    opacity: 0;
+    -moz-transition: opacity 1s linear;
+    -o-transition: opacity 1s linear;
+    -webkit-transition: opacity 1s linear;
+  }
+  #progress_bar.loading {
+    opacity: 1.0;
+  }
+  #progress_bar .percent {
+    background-color: #99ccff;
+    height: auto;
+    width: 0;
+  }
+</style>
+
+<input type="file" id="files" name="file" />
+<button onclick="abortRead();">Cancel read</button>
+<div id="progress_bar"><div class="percent">0%</div></div>
 <script>
+/*
+  var reader;
+  var progress = document.querySelector('.percent');
+
+  function abortRead() {
+    reader.abort();
+  }
+
+  function errorHandler(evt) {
+    switch(evt.target.error.code) {
+      case evt.target.error.NOT_FOUND_ERR:
+        alert('File Not Found!');
+        break;
+      case evt.target.error.NOT_READABLE_ERR:
+        alert('File is not readable');
+        break;
+      case evt.target.error.ABORT_ERR:
+        break; // noop
+      default:
+        alert('An error occurred reading this file.');
+    };
+  }
+
+  function updateProgress(evt) {
+    // evt is an ProgressEvent.
+    if (evt.lengthComputable) {
+      var percentLoaded = Math.round((evt.loaded / evt.total) * 100);
+      // Increase the progress bar length.
+      if (percentLoaded < 100) {
+        progress.style.width = percentLoaded + '%';
+        progress.textContent = percentLoaded + '%';
+      }
+    }
+  }
+
+  function handleFileSelect(evt) {
+    // Reset progress indicator on new file selection.
+    progress.style.width = '0%';
+    progress.textContent = '0%';
+
+    reader = new FileReader();
+    reader.onerror = errorHandler;
+    reader.onprogress = updateProgress;
+    reader.onabort = function(e) {
+      alert('File read cancelled');
+    };
+    reader.onloadstart = function(e) {
+      document.getElementById('progress_bar').className = 'loading';
+    };
+    reader.onload = function(e) {
+      // Ensure that the progress bar displays 100% at the end.
+      progress.style.width = '100%';
+      progress.textContent = '100%';
+      setTimeout("document.getElementById('progress_bar').className='';", 2000);
+    }
+
+    // Read in the image file as a binary string.
+    reader.readAsBinaryString(evt.target.files[0]);
+  }
+
+document.getElementById('files').addEventListener('change', handleFileSelect, false);
+*/
+</script>
+-->
+<script>
+//airports dictionary
+var airports = {};
+
+//current viz network
+var nodes = [];
+var links = [];
+var airlinesNodeIndex = {};
+var airportsOriginNodeIndex = {};
+var airportsDestinationNodeIndex = {};
+var citiesOriginNodeIndex = {};
+var citiesDestinationNodeIndex = {};
+var countriesOriginNodeIndex = {};
+var countriesDestinationNodeIndex = {};
+var regionsOriginNodeIndex = {};
+var regionsDestinationNodeIndex = {};
+var createdNodesIndex = 0;
+var createdLinksIndex = 0;
+
+//full data network
+// it's basically a big array so that every aggregated leg counter JFK,CDG,AA,42
+//is pushed to network[NAMER][US][NYC][JFK][AA][CDG][PAR][FR][EUROP]= 42
+//once network is filled, we can update the array with intermediate aggregation
+var dataNetwork = {};
+
+//viz network
+var network = {};
+
+
+buildAirports();
+
+function buildAirports() {
+  //header iata_code,country_code,city_code,region_code
+  d3.csv("airports.csv",function (csv) {
+
+    csv.forEach(function(row) {
+      airports[row.iata_code] = row;
+    })
+	/*
+	d3.json("dataNetwork.json",function (json) {
+	dataNetwork = json;
+	buildNetworkViz();
+	});
+	*/
+	
+	buildNetworkOld();
+	
+  });
+}
+
+
+function buildNetworkOld(){
+
+	var start = new Date();
+
+
+  d3.csv("legs.csv",function (csv) {
+    var data = csv.filter(function(row){return  ((row.airline == "AF" || row.airline == "LH" || row.airline == "BA") && row.nbLeg >= 0)});
+	var totalRow = data.length;
+    var rowIndex = 0;
+    data.forEach(function(row) {		  
+		  
+		  var ori = airports[row.origin];
+		  var des = airports[row.destination];
+		  console.log(row.origin + " -> " + row.destination);
+		  if (ori && des) {
+	
+			  if (!airlinesNodeIndex[row.airline] && airlinesNodeIndex[row.airline]!=0) {
+			    console.log("adding " + row.airline + " " + createdNodesIndex);
+				nodes.push({"name":row.airline,"visible":true});		
+				airlinesNodeIndex[row.airline]=createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  
+			  if (!airportsOriginNodeIndex[row.origin]) {
+				nodes.push({"name":row.origin,"type":"origin"})		
+				airportsOriginNodeIndex[row.origin] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  if (!airportsDestinationNodeIndex[row.destination]) {
+				nodes.push({"name":row.destination,"type":"destination"})		
+				airportsDestinationNodeIndex[row.destination] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  /*
+			  if (!citiesOriginNodeIndex[ori.city_code]) {
+				nodes.push({"name":ori.city_code,"type":"origin"})		
+				citiesOriginNodeIndex[ori.city_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  if (!citiesDestinationNodeIndex[des.city_code]) {
+				nodes.push({"name":des.city_code,"type":"destination"})		
+				citiesDestinationNodeIndex[des.city_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  
+			  if (!countriesOriginNodeIndex[ori.country_code]) {
+				nodes.push({"name":ori.country_code,"type":"origin"})		
+				countriesOriginNodeIndex[ori.country_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  if (!countriesDestinationNodeIndex[des.country_code]) {
+				nodes.push({"name":des.country_code,"type":"destination"})		
+				countriesDestinationNodeIndex[des.country_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  if (!regionsOriginNodeIndex[ori.region_code]) {
+				nodes.push({"name":ori.region_code,"type":"origin","visible":true});		
+				regionsOriginNodeIndex[ori.region_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }
+			  if (!regionsDestinationNodeIndex[des.region_code]) {
+				nodes.push({"name":des.region_code,"type":"destination","visible":true});		
+				regionsDestinationNodeIndex[des.region_code] = createdNodesIndex;
+				++createdNodesIndex;
+			  }*/
+			  
+			  
+			  //var regionCountry = {"source":regionsOriginNodeIndex[ori.region_code],"target":countriesOriginNodeIndex[ori.country_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  //var countryCity = {"source":countriesOriginNodeIndex[ori.country_code],"target":citiesOriginNodeIndex[ori.city_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  //var cityAirport = {"source":citiesOriginNodeIndex[ori.city_code],"target":airportsOriginNodeIndex[row.origin],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  //var countryAirline = {"source":countriesOriginNodeIndex[ori.country_code],"source":airlinesNodeIndex[row.airline],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var airportAirline = {"source":airportsOriginNodeIndex[row.origin],"target":airlinesNodeIndex[row.airline],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var airlineAirport = {"source":airlinesNodeIndex[row.airline],"target":airportsDestinationNodeIndex[row.destination],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //var airportAirport = {"source":airportsOriginNodeIndex[row.origin],"target":airportsDestinationNodeIndex[row.destination],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  //var airlineCountry = {"source":airlinesNodeIndex[row.airline],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //var airportCity = {"source":airportsDestinationNodeIndex[row.destination],"target":citiesDestinationNodeIndex[des.city_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //var cityCountry = {"source":citiesDestinationNodeIndex[des.city_code],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //var countryRegion = {"source":countriesDestinationNodeIndex[des.country_code],"target":regionsDestinationNodeIndex[des.region_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //var regionAirline = {"source":regionsDestinationNodeIndex[des.region_code],"target":airlinesNodeIndex[row.airline],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  //regionCountry.next = countryAirline;
+			  //countryAirline.previous = regionCountry;
+			  //countryAirline.next = airlineCountry;
+			  //airlineCountry.previous = countryAirline;
+			  //airlineCountry.next = countryRegion;
+			  //countryRegion.previous = airlineCountry;
+			  
+			  //regionCountry.next = countryCity;			  
+			  //countryCity.previous = regionCountry;
+			  //countryCity.next = cityAirport;
+			  //cityAirport.previous = countryCity;
+			  //cityAirport.next = airportAirline;
+			  //cityAirport.next = airportAirport;
+			  
+			  //airportAirline.previous = cityAirport;			  
+			  airportAirline.next = airlineAirport;
+			  airlineAirport.previous = airportAirline;			  
+			  //airlineAirport.next = airportCity;
+			  
+			  //airportCity.previous = airlineAirport;
+			  //airportAirport.previous = cityAirport;
+			  //airportAirport.next = airportCity;
+			  
+			  //airportCity.previous = airportAirport
+			  //airportCity.next = cityCountry;
+			  //cityCountry.previous = airportCity;
+			  //cityCountry.next = countryRegion;
+			  //countryRegion.previous = cityCountry;
+			  //countryRegion.next = regionAirline;
+			  //regionAirline.previous = countryRegion;
+			  
+			  //links.push(regionCountry);				  
+			  //links.push(countryCity);			  
+			  //links.push(cityAirport);
+			  links.push(airportAirline);
+			  links.push(airlineAirport);
+			  //links.push(airportAirport);
+			  //links.push(airportCity);
+			  //links.push(cityCountry);
+			  //links.push(countryRegion);
+			  //links.push(regionAirline);
+			  
+			  } else {
+		     console.log("Airport not found for " + row.origin + " " + row.destination);
+		  }
+		  percentComplete = parseInt(rowIndex/totalRow*100);		   
+		  ++rowIndex;
+				
+    });
+		
+	var end = new Date(); 
+    var elapsedT = new Date(end - start); // in ms	
+		
+	console.log("dataNetwork built in "  + elapsedT.getTime() +" ms");
+	buildNetworkViz();
+    });
+
+}
+
+//build the network and the legs dictionary
+//header origin,destination,airline,nbLeg
+function buildNetwork() {
+
+  var start = new Date();
+
+
+  d3.csv("legs.csv",function (csv) {
+    var totalRow = csv.filter(function(row){return row.nbLeg >= 1000}).length;
+    var rowIndex = 0;
+    csv.forEach(function(row) {	
+	  if ( row.nbLeg >= 1000) {
+		  
+		  var ori = airports[row.origin];
+		  var des = airports[row.destination];
+		  
+		  if (ori && des) {
+		      
+		      var regionO = ["ALL",ori.region_code];
+			  var countryO = ["ALL",ori.country_code];
+			  var cityO = ["ALL",ori.city_code];
+			  var airportO = ["ALL",ori.iata_code];
+			  var airline = ["ALL",row.airline];
+			  var airportD = ["ALL",des.iata_code];
+			  var cityD = ["ALL",des.city_code];
+			  var countryD = ["ALL",des.country_code];
+			  var regionD = ["ALL",des.region_code];
+			  var size = parseInt(row.nbLeg);
+			  
+			  for ( var rO = 0; rO < regionO.length; ++rO){
+			  for ( var cO = 0; cO < countryO.length; ++cO){
+			  for ( var ciO = 0; ciO < cityO.length; ++ciO){
+			  for ( var aO = 0; aO < airportO.length; ++aO){
+			  for ( var a = 0; a < airline.length; ++a){
+			  for ( var aD = 0; aD < airportD.length; ++aD){
+			  for ( var ciD = 0; ciD < cityD.length; ++ciD){
+			  for ( var cD = 0; cD < countryD.length; ++cD){
+			  for ( var rD = 0; rD < regionD.length; ++rD){
+			  
+				  if(!dataNetwork[regionO[rO]]) {
+					dataNetwork[regionO[rO]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][airline[a]]) {
+					dataNetwork[regionO[rO]][airline[a]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]]){
+					dataNetwork[regionO[rO]][countryO[cO]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]][countryD[cD]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]][countryD[cD]] = {};
+				  }
+				  if(!dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]][countryD[cD]][regionD[rD]]){
+					dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]][countryD[cD]][regionD[rD]] = 0;
+				  }
+							  
+				  //update counter
+				  dataNetwork[regionO[rO]][countryO[cO]][cityO[ciO]][airportO[aO]][airline[a]][airportD[aD]][cityD[ciD]][countryD[cD]][regionD[rD]] += size;
+			  }
+			  }
+			  }
+			  }
+			  }
+			  }
+			  }
+			  }
+			  }
+			  
+			  
+		  } else {
+		     console.log("Airport not found for " + row.origin + " " + row.destination);
+		  }
+		  percentComplete = parseInt(rowIndex/totalRow*100);		   
+		  ++rowIndex;
+		}		
+    });
+		
+	var end = new Date(); 
+    var elapsedT = new Date(end - start); // in ms	
+		
+	console.log("dataNetwork built in "  + elapsedT.getTime() +" ms");
+	buildNetworkViz();
+	});
+}
+
+function storeDataNetwork() {
+
+    window.webkitRequestFileSystem(window.TEMPORARY, 1024*1024, function(fs) {
+        fs.root.getFile('dataNetwork.json', {create: true}, function(fileEntry) {
+            fileEntry.createWriter(function(fileWriter) {
+                var dump = JSON.stringify(dataNetwork);
+                var blob = new Blob([dump]);
+    
+                fileWriter.addEventListener("writeend", function() {
+                    // navigate to file, will download
+                    location.href = fileEntry.toURL();
+                }, false);
+    
+                fileWriter.write(blob);
+            }, function() {});
+        }, function() {});
+    }, function() {});
+
+}
 
 //Build the network
-var network = {"nodes":[
-//origin
-{"name":"Origin World"},
-//destination
-{"name":"Destination World"},
-//origin region
-{"name":"oNAMER"},
-{"name":"oEUROP"},
-//destination region
-{"name":"dNAMER"},
-{"name":"dEUROP"},
-//origin country
-{"name":"oUS"},
-{"name":"oFR"},
-{"name":"oDE"},
-//destination country
-{"name":"dUS"},
-{"name":"dFR"},
-{"name":"dDE"},
-//origin city
-{"name":"oNYC"},
-{"name":"oPAR"},
-//destination city
-{"name":"dNYC"},
-{"name":"dPAR"},
-//origin airport
-{"name":"oJFK"},
-{"name":"oEWR"},
-{"name":"oCDG"},
-{"name":"oFRA"},
-{"name":"oATL"},
-{"name":"oMUC"},
-//destination airport
-{"name":"dJFK"},
-{"name":"dEWR"},
-{"name":"dCDG"},
-{"name":"dFRA"},
-{"name":"dATL"},
-{"name":"dMUC"},
-//airline
-{"name":"AA"},
-{"name":"AF"},
-{"name":"LH"},
-],
-"links":[
-// o world <-> d world
-//{"source":0,"target":1,"value":100},
-//o world <-> o region
-{"source":0,"target":2,"value":50},
-{"source":0,"target":3,"value":50},
-//d region <-> d world
-{"source":4,"target":1,"value":50},
-{"source":5,"target":1,"value":50},
-//o region <-> d region
-{"source":2,"target":4,"value":25},
-{"source":2,"target":5,"value":12},
-{"source":3,"target":4,"value":12},
-{"source":3,"target":5,"value":25},
-//o region <-> o country
-//{"source":2,"target":6,"value":50},
-//{"source":3,"target":7,"value":25},
-//{"source":3,"target":8,"value":25},
-//o country <-> d country
-//{"source":6,"target":9,"value":5},
-//{"source":6,"target":10,"value":5},
-//{"source":6,"target":11,"value":5},
-//{"source":7,"target":9,"value":5},
-//{"source":7,"target":10,"value":5},
-//{"source":7,"target":11,"value":5},
-//{"source":8,"target":9,"value":5},
-//{"source":8,"target":10,"value":5},
-//{"source":8,"target":11,"value":5},
-//d country <-> d region
-//{"source":9,"target":4,"value":50},
-//{"source":10,"target":5,"value":25},
-//{"source":11,"target":5,"value":25},
-//country <-> city
+function buildNetworkViz() {
+    //only build for EUROP ALL ALL ALL AF ALL ALL ALL EUROP		
+	
+	
+	/*
+	var size = dataNetwork["EUROP"]["ALL"]["ALL"]["ALL"]["AF"]["ALL"]["ALL"]["ALL"]["EUROP"];
+	nodes.push({"name":"oEUROP"});
+	nodes.push({"name":"AF"});
+	nodes.push({"name":"dEUROP"});
+	links.push({"source":0,"target":1,"value":size, "od":"","type":"origin"});
+	links.push({"source":1,"target":2,"value":size, "od":"","type":"destination"});
+	*/
+	network = {"nodes":nodes,"links":links};	
+	buildViz();
 
-//city <-> city
-//city <-> airport
-//airport <-> airline
-//airline <-> airport
-//airport <-> city
-//city <-> country
-
-
-
-]};
+}
 
 //Build the visualization
+function buildViz() {
+	var margin = {top: 1, right: 1, bottom: 6, left: 1},
+		width = 2048 - margin.left - margin.right,
+		height = 4000 - margin.top - margin.bottom;
+		
+	var formatNumber = d3.format(",.0f"),
+		format = function(d) { return formatNumber(d) + " Legs"; },
+		color = d3.scale.category20();
 
-var margin = {top: 1, right: 1, bottom: 6, left: 1},
-    width = 1600 - margin.left - margin.right,
-    height = 1400 - margin.top - margin.bottom;
+	var svg = d3.select("#chart").append("svg")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+	  .append("g")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-var formatNumber = d3.format(",.0f"),
-    format = function(d) { return formatNumber(d) + " Legs"; },
-    color = d3.scale.category20();
+	var sankey = d3.sankey()
+		.nodeWidth(15)
+		.nodePadding(10)
+		.size([width, height]);
 
-var svg = d3.select("#chart").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-var sankey = d3.sankey()
-    .nodeWidth(15)
-    .nodePadding(10)
-    .size([width, height]);
-
-var path = sankey.link();
+	var path = sankey.link();
 
 
-  sankey
-      .nodes(network.nodes)
-      .links(network.links)
-      .layout(32);
+	  sankey
+		  .nodes(network.nodes)
+		  .links(network.links)
+		  .layout(32);
 
-  var link = svg.append("g").selectAll(".link")
-      .data(network.links)
-    .enter().append("path")
-      .attr("class", "link")
-      .attr("d", path)
-      .style("stroke-width", function(d) { return Math.max(1, d.dy); })
-      .sort(function(a, b) { return b.dy - a.dy; });
+	  var link = svg.append("g").selectAll(".link")
+		  .data(network.links)
+		.enter().append("path")
+		  .attr("class", "link")
+		  .attr("d", path)
+		  .style("stroke-width", function(d) { return Math.max(1, d.dy); })
+		  .sort(function(a, b) { return b.dy - a.dy; })
+		  .on("mouseover", linkOver)
+		  .on("mouseout", linkOut);
 
-  link.append("title")
-      .text(function(d) { return d.source.name + " -> " + d.target.name + "\n" + format(d.value); });
+	  link.append("title")
+		  .text(function(d) { return d.source.name + " -> " + d.target.name + " for od:" + d.od + "\n" + format(d.value); });
 
-  var node = svg.append("g").selectAll(".node")
-      .data(network.nodes)
-    .enter().append("g")
-      .attr("class", "node")
-      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
-    .call(d3.behavior.drag()
-      .origin(function(d) { return d; })
-      .on("dragstart", function() { this.parentNode.appendChild(this); })
-      .on("drag", dragmove));
+	  var node = svg.append("g").selectAll(".node")
+		  .data(network.nodes)
+		.enter().append("g")
+		  .attr("class", "node")
+		  .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+		.call(d3.behavior.drag()
+		  .origin(function(d) { return d; })
+		  .on("dragstart", function() { this.parentNode.appendChild(this); })
+		  .on("drag", dragmove)
+		  );
 
-  node.append("rect")
-      .attr("height", function(d) { return d.dy; })
-      .attr("width", sankey.nodeWidth())
-      .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
-      .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
-    .append("title")
-      .text(function(d) { return d.name + "\n" + format(d.value); });
+	  node.append("rect")
+		  .attr("height", function(d) { return d.dy; })
+		  .attr("width", sankey.nodeWidth())
+		  .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
+		  .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
+		  .on("mouseover", nodeOver)
+		  .on("mouseout", nodeOut)
+		.append("title")
+		  .text(function(d) { return d.name + "\n" + format(d.value); });
 
-  node.append("text")
-      .attr("x", -6)
-      .attr("y", function(d) { return d.dy / 2; })
-      .attr("dy", ".35em")
-      .attr("text-anchor", "end")
-      .attr("transform", null)
-      .text(function(d) { return d.name; })
-    .filter(function(d) { return d.x < width / 2; })
-      .attr("x", 6 + sankey.nodeWidth())
-      .attr("text-anchor", "start");
-
-  function dragmove(d) {
-    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
-    sankey.relayout();
-    link.attr("d", path);
+	  node.append("text")
+		  .attr("x", -6)
+		  .attr("y", function(d) { return d.dy / 2; })
+		  .attr("dy", ".35em")
+		  .attr("text-anchor", "end")
+		  .attr("transform", null)
+		  .text(function(d) { return d.name; })
+		.filter(function(d) { return d.x < width / 2; })
+		  .attr("x", 6 + sankey.nodeWidth())
+		  .attr("text-anchor", "start");
+		  
+	function dragmove(d) {
+		d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+		sankey.relayout();
+		link.attr("d", path);
+	}
+	
+	function linkOver(d) {
+		linkOverPrevious(d);
+		linkOverNext(d);		
+	}
+	
+	function linkOverPrevious(d) {
+	    if (d.previous) {
+			var previousLink = d.previous;		
+			var previous = svg.selectAll(".link").filter(function (d) {return (d == previousLink);});
+			previous.attr("class","linkOver");
+			linkOverPrevious(d.previous);
+		}
+	}
+	
+	function linkOverNext(d) {
+		if (d.next) {
+			var nextLink = d.next;		
+			var next = svg.selectAll(".link").filter(function (d) {return (d == nextLink);});
+			next.attr("class","linkOver");
+			linkOverNext(d.next);			
+		}
+	}
+	
+	
+	function linkOut(d) {		
+		var previous = svg.selectAll(".linkOver");
+		previous.attr("class","link");
+	}
+	
+	function nodeOver(d) {
+		var nodeName = d.name;
+		if (d.type == "origin") {
+		  //  nodeOverNext(nodeName,d);
+		
+			var links = svg.selectAll(".link").filter(function (d) {
+			  return (d.previous && d.previous.source.name == nodeName && d.type == "origin") || (d.source.name == nodeName && d.type == "origin") 
+			  || (d.previous && d.previous.previous && d.previous.previous.source.name == nodeName)
+			  || (d.previous && d.previous.previous && d.previous.previous.previous && d.previous.previous.previous.source.name == nodeName)
+			  || (d.previous && d.previous.previous && d.previous.previous.previous && d.previous.previous.previous.previous && d.previous.previous.previous.previous.source.name == nodeName)
+			  || (d.previous && d.previous.previous && d.previous.previous.previous && d.previous.previous.previous.previous && d.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.source.name == nodeName)
+			  || (d.previous && d.previous.previous && d.previous.previous.previous && d.previous.previous.previous.previous && d.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.previous.source.name == nodeName)
+			  || (d.previous && d.previous.previous && d.previous.previous.previous && d.previous.previous.previous.previous && d.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.previous.previous && d.previous.previous.previous.previous.previous.previous.previous.source.name == nodeName);
+			});
+			links.attr("class","linkOver");
+			
+		} else if (d.type == "destination") {
+			var links = svg.selectAll(".link").filter(function (d) {
+			   return (d.next && d.next.target.name == nodeName  && d.type == "destination") || (d.target.name == nodeName && d.type == "destination")
+			    || (d.next && d.next.next && d.next.next.target.name == nodeName )
+			    || (d.next && d.next.next && d.next.next.next && d.next.next.next.target.name == nodeName)
+				|| (d.next && d.next.next && d.next.next.next && d.next.next.next.next && d.next.next.next.next.target.name == nodeName)
+				|| (d.next && d.next.next && d.next.next.next && d.next.next.next.next && d.next.next.next.next.next && d.next.next.next.next.next.target.name == nodeName)
+				|| (d.next && d.next.next && d.next.next.next && d.next.next.next.next && d.next.next.next.next.next && d.next.next.next.next.next.next && d.next.next.next.next.next.next.target.name == nodeName)
+				|| (d.next && d.next.next && d.next.next.next && d.next.next.next.next && d.next.next.next.next.next && d.next.next.next.next.next.next && d.next.next.next.next.next.next.next && d.next.next.next.next.next.next.next.target.name == nodeName);
+			   });
+			links.attr("class","linkOver");
+		
+		}
+								
+		
+	}
+	
+	function nodeOverNext(nodeName,d) {
+		
+		if (d.previous) {		  
+		  var links = svg.selectAll(".link").filter(function (d) {
+		    return (d.previous.source.name == nodeName);
+		  });
+		  links.attr("class","linkOver");		  
+		  nodeOverPrevious(nodeName,d.previous);
+		}
+		
+	}
+	
+    function nodeOverPrevious(nodeName,d) {
+		
+		if (d.next) {		  
+		  var links = svg.selectAll(".link").filter(function (d) {
+		    return (d.next.target.name == nodeName);
+		  });
+		  links.attr("class","linkOver");		  
+		  nodeOverNext(d.next);
+		}
+		
+	}
+	
+	function nodeOut(d) {		
+		var previous = svg.selectAll(".linkOver");
+		previous.attr("class","link");
+	}
+	
   }
+
+
 
 
 </script>

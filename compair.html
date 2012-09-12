@@ -1,9 +1,70 @@
 <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>CompAirLine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Competition among Airlines">
+    <meta name="author" content="rodribat">
+
+    <!-- Le styles -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <style>
+      body {
+        padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
+      }
+    </style>
+    <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
+          <a class="brand" href="#">Project name</a>
+          <div class="nav-collapse collapse">
+            <ul class="nav">
+              <li class="active"><a href="#">Home</a></li>
+              <li><a href="#about">About</a></li>
+              <li><a href="#contact">Contact</a></li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+
+      <h1>Bootstrap starter template</h1>
+      <p>Use this document as a way to quick start any new project.<br> All you get is this message and a barebones HTML document.</p>
+
+    </div> <!-- /container -->
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="js/bootstrap.min.js"></script>
+
+  </body>
+</html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>CompAir</title>
-    <script type="text/javascript" src="d3.v2.js"></script>
+    <script type="text/javascript" src="js/d3.v2.js"></script>
     <style type="text/css">
 
 circle.node {
@@ -35,16 +96,21 @@ text.shadow {
     <div id="chart"></div>
     <script type="text/javascript">
 
-var width = 960,
-    height = 500,
+var width = 1920,
+    height = 1080,
     node,
     link,
     root;
+	
+root = {"name":"ALL","size":0};
+root.fixed = true;
+root.x = width / 2;
+root.y = height / 2;
 
 var force = d3.layout.force()
     .on("tick", tick)
-    .charge(function(d) { return d._children ? -d.size / 100 : -30; })
-    .linkDistance(function(d) { return d.target._children ? 80 : 30; })
+    .charge(function(d) { return d._children ? -d.size/100 : -20; })
+    .linkDistance(function(d) { return d.target._children ? 130 : 30; })
     .size([width, height]);
 
 var vis = d3.select("#chart").append("svg")
@@ -55,14 +121,86 @@ var vis = d3.select("#chart").append("svg")
 var text = vis.append("svg:g").selectAll("g")
     .data(force.nodes())
     .enter().append("svg:g");
+	
+//airports dictionary
+var airports = {};
+buildAirports();
 
-d3.json("test.json", function(json) {
-  root = json;
-  root.fixed = true;
-  root.x = width / 2;
-  root.y = height / 2;
-  update();
-});
+function buildAirports() {
+  //header iata_code,country_code,city_code,region_code
+  d3.csv("airports.csv",function (csv) {
+
+    csv.forEach(function(row) {
+      airports[row.iata_code] = row;
+    })
+	
+	buildNetwork();
+	
+  });
+}
+
+function buildNetwork(){
+
+	var start = new Date();
+
+    d3.csv("legs.csv",function (csv) {
+    var data = csv.filter(function(row){return  row.nbLeg >= 100});
+	data.forEach(function(row) {	
+	  var ori = airports[row.origin];
+	  var des = airports[row.destination];
+		  
+	  if (ori && des) {	    
+	    var regionO = ori.region_code;
+		var countryO = ori.country_code;
+		var cityO = ori.city_code;
+		var airportO = ori.iata_code;
+		var airline = row.airline;
+		var airportD = des.iata_code;
+		var cityD = des.city_code;
+		var countryD = des.country_code;
+		var regionD = des.region_code;
+		var size = parseInt(row.nbLeg);
+		
+		//var childrenNameList = [regionO,"ALL",countryO,"ALL",cityO,"ALL",airportO,"ALL",airportD,"ALL",cityD,"ALL",countryD,"ALL",regionD,"ALL",airline];
+		//var childrenNameList = [regionO,countryO,cityO,airportO,airportD,cityD,countryD,regionD,airline];
+		//var childrenNameList = [regionO+" -> "+regionD,countryO+" -> "+countryD];
+		var childrenNameList = [regionO,airline];
+		var parent = root;
+		for (var childNameIndex = 0; childNameIndex < childrenNameList.length; ++childNameIndex) {
+		  var childName = childrenNameList[childNameIndex];
+		  var child = 0;
+		  //if no child then procreate
+		  if (!parent._children) {
+		    parent._children = [];
+			parent._children.push({"name":childName,"size":size});
+		  } else {		  
+			 //look for eventual twin ;-)			 
+			 while ((child < parent._children.length) && (parent._children[child].name != childName) ) {
+			  ++child;
+			 }
+			 //if we have a twin, merge ;-)
+			 if (child < parent._children.length ) {
+			   parent._children[child].size += size;
+			 } else {//make a brother
+			  parent._children.push({"name":childName,"size":size});
+			 }
+		  }
+		  parent.size += size;
+          parent = parent._children[child];
+		}
+		
+	}
+	
+	});
+	
+	var end = new Date(); 
+    var elapsedT = new Date(end - start); // in ms	
+		
+	console.log("network built in "  + elapsedT.getTime() +" ms");
+    click(root);	
+	update();
+  });
+}
 
 function update() {
   var nodes = flatten(root),
@@ -73,6 +211,9 @@ function update() {
       .nodes(nodes)
       .links(links)
       .start();
+	  
+	  //remove the text
+
 
   // Update the links…
   link = vis.selectAll("line.link")
@@ -95,17 +236,18 @@ function update() {
       .style("fill", color);
 
   node.transition()
-      .attr("r", function(d) { return d.children ? 4.5 : Math.sqrt(d.size) / 10; });
+      .attr("r", function(d) { return d.children ? 10 : Math.sqrt(d.size) / 100; });
 
   // Enter any new nodes.
   node.enter().append("circle")
       .attr("class", "node")
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; })
-      .attr("r", function(d) { return d.children ? 4.5 : Math.sqrt(d.size) / 10; })
+      .attr("r", function(d) { return d.children ? 10 : Math.sqrt(d.size) / 100; })
       .style("fill", color)
       .on("click", click)
-      .call(force.drag);
+      .call(force.drag)
+	  .append("title").text(function(d) { return d.name + "\n" + d.size + " Legs"; });;
 
 text = vis.append("svg:g").selectAll("g")
     .data(force.nodes())
@@ -121,11 +263,10 @@ text = vis.append("svg:g").selectAll("g")
   text.append("svg:text")
 	.attr("x", 8)
 	.attr("y", ".31em")
+	.attr("class", "label")
 	.text(function(d) { return d.name; });	  
-	
 
-
-  // Exit any old nodes.
+  // Exit any old nodes.  
   node.exit().remove();
 
 }
@@ -151,7 +292,7 @@ function color(d) {
 
 // Toggle children on click.
 function click(d) {
-	
+	d3.selectAll("text").remove();
   if (d.children) {
     d._children = d.children;
     d.children = null;
