@@ -37,7 +37,7 @@
 	  stroke-opacity: .8;
 	}
 	#progress_bar {
-		margin: 10px 0;
+		margin: 10px 10px 10px 10px;
 		padding: 3px;
 		border: 1px solid #000;
 		font-size: 14px;
@@ -51,7 +51,8 @@
 		opacity: 1.0;
 	  }
 	  #progress_bar .percent {
-		background-color: #99ccff;
+	    margin: 10px 0;
+		background-color: grey;
 		height: auto;
 		width: 0;
     </style>
@@ -97,7 +98,6 @@
 	  
 	  <div class="span8"><p>The airline in the central position is compared to all other airlines, the closer they are, well the closer they are ;-)<p>
 	  <p>Bubble size represents the total number of scheduled legs per year<p>
-	  <span id="progress"></span>
 	  </div>
 	   <div class="span2">
       
@@ -259,11 +259,12 @@ function computeSimilarities() {
 	  similarityMatrix["region"][a] = {};
     }
 	
-	var total = airlines.length - 1;
-	var current = 0;	
+	var total = airlines.length ;
+	var current = 0;
+    
 	//compute similiraties for all airlines
 	interval_progressbar = setInterval(function(){		
-	for (var i = 0; i< airlines.length; ++i) {
+	for (var i = current; i< current+1; ++i) {
 	  var a1 = airlines[i];  
 	  for (var j = i; j < airlines.length; ++j) {
 	    var a2 = airlines[j];		
@@ -276,21 +277,21 @@ function computeSimilarities() {
 		similarityMatrix["region"][a1][a2] = computeBoolSimilarity(a1,a2,airlineRegionMatrix);		
 		similarityMatrix["region"][a2][a1] = similarityMatrix["region"][a1][a2];			
 	  }
+	  }
 	  percentComplete = parseInt(current/total*100);
 	  ++current;
 	  console.log(percentComplete);	  
-	  $("#progressbar").progressbar({value: percentComplete});
-	  $("#progress").html("%" + percentComplete);
-	  }
+	  $("#progressbar").progressbar({value: percentComplete});	  
 	  if((percentComplete<100)==false)	{
 	      clearInterval(interval_progressbar);
+	  	  var end = new Date(); 
+          var elapsedT = new Date(end - start); // in ms
+
+		  console.log("similarities computed in "  + elapsedT.getTime() +" ms");
+		  
+		  buildVizNetwork(level);
 	  }
-	  	var end = new Date(); 
-    var elapsedT = new Date(end - start); // in ms
-	
-	console.log("similarities computed in "  + elapsedT.getTime() +" ms");
-	buildVizNetwork(level);
-	},0);
+	  },0);
 
     });
 	
