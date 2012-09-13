@@ -191,7 +191,7 @@ function buildNetworkOld(){
 
 
   d3.csv("legs.csv",function (csv) {
-    var data = csv.filter(function(row){return  ((row.airline == "AF" || row.airline == "LH" || row.airline == "BA") && row.nbLeg >= 0)});
+    var data = csv.filter(function(row){return  ((row.airline == "SS" || row.airline == "4M") && row.nbLeg >= 40)});
 	var totalRow = data.length;
     var rowIndex = 0;
     data.forEach(function(row) {		  
@@ -218,7 +218,6 @@ function buildNetworkOld(){
 				airportsDestinationNodeIndex[row.destination] = createdNodesIndex;
 				++createdNodesIndex;
 			  }
-			  /*
 			  if (!citiesOriginNodeIndex[ori.city_code]) {
 				nodes.push({"name":ori.city_code,"type":"origin"})		
 				citiesOriginNodeIndex[ori.city_code] = createdNodesIndex;
@@ -249,61 +248,59 @@ function buildNetworkOld(){
 				nodes.push({"name":des.region_code,"type":"destination","visible":true});		
 				regionsDestinationNodeIndex[des.region_code] = createdNodesIndex;
 				++createdNodesIndex;
-			  }*/
-			  
-			  
-			  //var regionCountry = {"source":regionsOriginNodeIndex[ori.region_code],"target":countriesOriginNodeIndex[ori.country_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
-			  //var countryCity = {"source":countriesOriginNodeIndex[ori.country_code],"target":citiesOriginNodeIndex[ori.city_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
-			  //var cityAirport = {"source":citiesOriginNodeIndex[ori.city_code],"target":airportsOriginNodeIndex[row.origin],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
-			  //var countryAirline = {"source":countriesOriginNodeIndex[ori.country_code],"source":airlinesNodeIndex[row.airline],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  }
+			  var regionCountry = {"source":regionsOriginNodeIndex[ori.region_code],"target":countriesOriginNodeIndex[ori.country_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var countryCity = {"source":countriesOriginNodeIndex[ori.country_code],"target":citiesOriginNodeIndex[ori.city_code],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var cityAirport = {"source":citiesOriginNodeIndex[ori.city_code],"target":airportsOriginNodeIndex[row.origin],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var countryAirline = {"source":countriesOriginNodeIndex[ori.country_code],"source":airlinesNodeIndex[row.airline],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
 			  var airportAirline = {"source":airportsOriginNodeIndex[row.origin],"target":airlinesNodeIndex[row.airline],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
 			  var airlineAirport = {"source":airlinesNodeIndex[row.airline],"target":airportsDestinationNodeIndex[row.destination],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
-			  //var airportAirport = {"source":airportsOriginNodeIndex[row.origin],"target":airportsDestinationNodeIndex[row.destination],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
-			  //var airlineCountry = {"source":airlinesNodeIndex[row.airline],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
-			  //var airportCity = {"source":airportsDestinationNodeIndex[row.destination],"target":citiesDestinationNodeIndex[des.city_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
-			  //var cityCountry = {"source":citiesDestinationNodeIndex[des.city_code],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
-			  //var countryRegion = {"source":countriesDestinationNodeIndex[des.country_code],"target":regionsDestinationNodeIndex[des.region_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  var airportAirport = {"source":airportsOriginNodeIndex[row.origin],"target":airportsDestinationNodeIndex[row.destination],"value":row.nbLeg, "od":row.origin+row.destination,"type":"origin"};
+			  var airlineCountry = {"source":airlinesNodeIndex[row.airline],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  var airportCity = {"source":airportsDestinationNodeIndex[row.destination],"target":citiesDestinationNodeIndex[des.city_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  var cityCountry = {"source":citiesDestinationNodeIndex[des.city_code],"target":countriesDestinationNodeIndex[des.country_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
+			  var countryRegion = {"source":countriesDestinationNodeIndex[des.country_code],"target":regionsDestinationNodeIndex[des.region_code],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
 			  //var regionAirline = {"source":regionsDestinationNodeIndex[des.region_code],"target":airlinesNodeIndex[row.airline],"value":row.nbLeg,"od":row.origin+row.destination,"type":"destination"};
-			  //regionCountry.next = countryAirline;
+			  regionCountry.next = countryAirline;
 			  //countryAirline.previous = regionCountry;
 			  //countryAirline.next = airlineCountry;
 			  //airlineCountry.previous = countryAirline;
 			  //airlineCountry.next = countryRegion;
-			  //countryRegion.previous = airlineCountry;
+			  countryRegion.previous = airlineCountry;
 			  
-			  //regionCountry.next = countryCity;			  
-			  //countryCity.previous = regionCountry;
-			  //countryCity.next = cityAirport;
-			  //cityAirport.previous = countryCity;
-			  //cityAirport.next = airportAirline;
-			  //cityAirport.next = airportAirport;
+			  regionCountry.next = countryCity;			  
+			  countryCity.previous = regionCountry;
+			  countryCity.next = cityAirport;
+			  cityAirport.previous = countryCity;
+			  cityAirport.next = airportAirline;
+			  cityAirport.next = airportAirport;
 			  
-			  //airportAirline.previous = cityAirport;			  
+			  airportAirline.previous = cityAirport;			  
 			  airportAirline.next = airlineAirport;
 			  airlineAirport.previous = airportAirline;			  
-			  //airlineAirport.next = airportCity;
+			  airlineAirport.next = airportCity;
 			  
-			  //airportCity.previous = airlineAirport;
-			  //airportAirport.previous = cityAirport;
-			  //airportAirport.next = airportCity;
+			  airportCity.previous = airlineAirport;
+			  airportAirport.previous = cityAirport;
+			  airportAirport.next = airportCity;
 			  
-			  //airportCity.previous = airportAirport
-			  //airportCity.next = cityCountry;
-			  //cityCountry.previous = airportCity;
-			  //cityCountry.next = countryRegion;
-			  //countryRegion.previous = cityCountry;
+			  airportCity.previous = airportAirport
+			  airportCity.next = cityCountry;
+			  cityCountry.previous = airportCity;
+			  cityCountry.next = countryRegion;
+			  countryRegion.previous = cityCountry;
 			  //countryRegion.next = regionAirline;
 			  //regionAirline.previous = countryRegion;
 			  
-			  //links.push(regionCountry);				  
-			  //links.push(countryCity);			  
-			  //links.push(cityAirport);
+			  links.push(regionCountry);				  
+			  links.push(countryCity);			  
+			  links.push(cityAirport);
 			  links.push(airportAirline);
 			  links.push(airlineAirport);
-			  //links.push(airportAirport);
-			  //links.push(airportCity);
-			  //links.push(cityCountry);
-			  //links.push(countryRegion);
+			  links.push(airportAirport);
+			  links.push(airportCity);
+			  links.push(cityCountry);
+			  links.push(countryRegion);
 			  //links.push(regionAirline);
 			  
 			  } else {
@@ -463,8 +460,8 @@ function buildNetworkViz() {
 //Build the visualization
 function buildViz() {
 	var margin = {top: 1, right: 1, bottom: 6, left: 1},
-		width = 2048 - margin.left - margin.right,
-		height = 4000 - margin.top - margin.bottom;
+		width = 1024 - margin.left - margin.right,
+		height = 768 - margin.top - margin.bottom;
 		
 	var formatNumber = d3.format(",.0f"),
 		format = function(d) { return formatNumber(d) + " Legs"; },
